@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.14)
+cmake_minimum_required(VERSION 3.22)
 
 include(cmake/prelude.cmake)
 
@@ -6,27 +6,33 @@ project(
     omESP
     VERSION 0.1.0
     DESCRIPTION "OpenMDAO interface to The Engineering Sketch Pad (https://acdl.mit.edu/esp/)"
-    HOMEPAGE_URL "https://example.com/"
+    HOMEPAGE_URL "https://github.com/tuckerbabcock/omESP"
     LANGUAGES CXX
 )
 
 include(cmake/project-is-top-level.cmake)
 include(cmake/variables.cmake)
 
+# Let CMake know where to find custom FindFoo.cmake files
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/find")
+
+# ---- Find ESP ----
+find_package(ESP REQUIRED)
+
 # ---- Declare library ----
 
 add_library(
-    omESP_omESP
-    source/omESP.cpp
+  omESP_omESP
+  source/omESP.cpp
 )
 add_library(omESP::omESP ALIAS omESP_omESP)
 
 include(GenerateExportHeader)
 generate_export_header(
-    omESP_omESP
-    BASE_NAME omESP
-    EXPORT_FILE_NAME export/omESP/omESP_export.hpp
-    CUSTOM_CONTENT_FROM_VARIABLE pragma_suppress_c4251
+  omESP_omESP
+  BASE_NAME omESP
+  EXPORT_FILE_NAME export/omESP/omESP_export.hpp
+  CUSTOM_CONTENT_FROM_VARIABLE pragma_suppress_c4251
 )
 
 if(NOT BUILD_SHARED_LIBS)
@@ -34,25 +40,31 @@ if(NOT BUILD_SHARED_LIBS)
 endif()
 
 set_target_properties(
-    omESP_omESP PROPERTIES
-    CXX_VISIBILITY_PRESET hidden
-    VISIBILITY_INLINES_HIDDEN YES
-    VERSION "${PROJECT_VERSION}"
-    SOVERSION "${PROJECT_VERSION_MAJOR}"
-    EXPORT_NAME omESP
-    OUTPUT_NAME omESP
+  omESP_omESP PROPERTIES
+  CXX_VISIBILITY_PRESET hidden
+  VISIBILITY_INLINES_HIDDEN YES
+  VERSION "${PROJECT_VERSION}"
+  SOVERSION "${PROJECT_VERSION_MAJOR}"
+  EXPORT_NAME omESP
+  OUTPUT_NAME omESP
+)
+
+target_link_libraries(
+  omESP_omESP
+  PUBLIC
+    ESP::ESP 
 )
 
 target_include_directories(
-    omESP_omESP ${warning_guard}
-    PUBLIC
-    "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
+  omESP_omESP ${warning_guard}
+  PUBLIC
+  "$<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>"
 )
 
 target_include_directories(
-    omESP_omESP SYSTEM
-    PUBLIC
-    "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/export>"
+  omESP_omESP SYSTEM
+  PUBLIC
+  "$<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/export>"
 )
 
 target_compile_features(omESP_omESP PUBLIC cxx_std_17)
@@ -69,8 +81,8 @@ if(NOT omESP_DEVELOPER_MODE)
   return()
 elseif(NOT PROJECT_IS_TOP_LEVEL)
   message(
-      AUTHOR_WARNING
-      "Developer mode is intended for developers of omESP"
+    AUTHOR_WARNING
+    "Developer mode is intended for developers of omESP"
   )
 endif()
 
