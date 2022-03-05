@@ -1,0 +1,18 @@
+# box.csm written by ocsmSave (v1.21)
+
+# Constant, Design, and Output Parameters:
+despmtr   dx       1.00000
+despmtr   dy       1.00000
+despmtr   dz       1.00000
+
+# Global Attributes:
+ATTRIBUTE capsAIM $egadsTessAIM;aflr4AIM;tetgenAIM;aflr3AIM;pumiAIM
+ATTRIBUTE capsMeshLength  1
+
+# Branches:
+box       0   0   0   dx   dy   dz
+
+ATTRIBUTE capsGroup    $box
+ATTRIBUTE capsMesh     $box
+
+end

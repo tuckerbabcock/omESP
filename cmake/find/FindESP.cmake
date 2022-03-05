@@ -118,7 +118,7 @@ Find ESP libraries and use imported targets:
 .. code-block:: cmake
 
   find_package(ESP REQUIRED COMPONENTS
-               egads aimUtil)
+               egads ocsm)
   add_executable(foo foo.cc)
   target_link_libraries(foo ESP::egads ESP::aimUtil)
 
@@ -191,7 +191,7 @@ endif()
 # ------------------------------------------------------------------------
 
 # all potential ESP components
-set(ESP_COMPONENTS aimUtil caps egads ocsm utils)
+set(ESP_COMPONENTS caps egads ocsm)
 
 # if not explicitly asking for any component, find all of them
 if(NOT ESP_FIND_COMPONENTS)

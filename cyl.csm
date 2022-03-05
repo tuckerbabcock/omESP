@@ -1,0 +1,17 @@
+# cyl.csm written by ocsmSave (v1.21)
+
+# Constant, Design, and Output Parameters:
+despmtr   rad      1.00000
+despmtr   dz       1.00000
+
+# Global Attributes:
+ATTRIBUTE capsAIM $egadsTessAIM;aflr4AIM;tetgenAIM;aflr3AIM;pumiAIM
+ATTRIBUTE capsMeshLength  10
+
+# Branches:
+cylinder  0   0   0   0    0    dz   rad    
+
+ATTRIBUTE capsGroup    $cyl
+ATTRIBUTE capsMesh     $cyl
+
+end
