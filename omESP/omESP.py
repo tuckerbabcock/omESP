@@ -50,15 +50,15 @@ def _setOCSMParameterValues(ocsm_model, pmtr_info, value):
 
     # scalar parameter
     if (nrow == 1) and (ncol == 1):
-        ocsm_model.SetValuD(pmtr_idx, row_idx, col_idx, value)
+        ocsm_model.SetValuD(pmtr_idx, 1, 1, value)
     
     # vector parameter
     elif (nrow == 1) and (ncol != 1):
         for col_idx in range(1, ncol+1):
-            ocsm_model.SetValuD(pmtr_idx, row_idx, col_idx, value[col_idx-1])
+            ocsm_model.SetValuD(pmtr_idx, 1, col_idx, value[col_idx-1])
     elif (nrow != 1) and (ncol == 1):
         for row_idx in range(1, nrow+1):
-            ocsm_model.SetValuD(pmtr_idx, row_idx, col_idx, value[row_idx-1])
+            ocsm_model.SetValuD(pmtr_idx, row_idx, 1, value[row_idx-1])
 
     # matrix parameter
     else:
@@ -67,7 +67,7 @@ def _setOCSMParameterValues(ocsm_model, pmtr_info, value):
                 ocsm_model.SetValuD(pmtr_idx, row_idx, col_idx, value[row_idx-1, col_idx-1])
 
 def _getTessCoordinates(tess, tess_coords):
-    for global_idx in range(1, tess_coords.size+1 / 3):
+    for global_idx in range(1, (tess_coords.size // 3) + 1):
         _, _, xyz = tess.getGlobal(global_idx)
         tess_coords[(global_idx - 1) * 3 + 0] = xyz[0]
         tess_coords[(global_idx - 1) * 3 + 1] = xyz[1]
@@ -80,7 +80,7 @@ class omESP(om.ExplicitComponent):
 
     def initialize(self):
         self.options.declare("csm_file", types=str)
-        self.options.declare("model_file", types=str)
+        self.options.declare("egads_file", types=str)
 
     def setup(self):
 
@@ -89,17 +89,17 @@ class omESP(om.ExplicitComponent):
         self.ocsm_model = ocsm.Ocsm(csm_file)
 
         ### Load EGADS model and validate tess
-        egads_model_file = self.options["model_file"]
+        egads_file = self.options["egads_file"]
         self.context = egads.Context()
-        self.egads_model = self.context.loadModel(egads_model_file)
+        self.egads_model = self.context.loadModel(egads_file)
 
         oclass, mtype, geom, reals, children, senses = self.egads_model.getTopology()
-
-        nbody = len(children)
+        if mtype == 0:
+            raise RuntimeError("Loaded EGADS model must inclue a tesselation")
+            
+        nbody = mtype // 2
         if (nbody != 1):
             raise RuntimeError("omESP only supports EGADS models with one body!")
-        elif (mtype != 2*nbody):
-            raise RuntimeError("Loaded EGADS model must inclue a tesselation")
 
         ### Add inputs
         self.design_pmtrs = _getOCSMDesignParameters(self.ocsm_model)
@@ -123,11 +123,11 @@ class omESP(om.ExplicitComponent):
         """
         Build the geometry model 
         """
-        for input, value in inputs.items():
+        for input in inputs.keys():
+            value = inputs[input]
             if input in self.design_pmtrs:
                 pmtr_info = self.design_pmtrs[input]
                 _setOCSMParameterValues(self.ocsm_model, pmtr_info, value)
-
 
         self.ocsm_model.Build(0, 0)
         ocsm_body = self.ocsm_model.GetEgo(1, ocsm.BODY, 0)
@@ -135,4 +135,3 @@ class omESP(om.ExplicitComponent):
         tess = self.egads_init_tess.mapTessBody(ocsm_body)
         
         _getTessCoordinates(tess, outputs["x_surf"])
-
