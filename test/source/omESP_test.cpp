@@ -98,8 +98,8 @@ auto main() -> int
    ocsm_model->body->etess = new_tess;
 
    /// pass new tess to `tessSensitivity`
-   // std::string wrt = "rad";
-   std::string wrt = "dz";
+   std::string wrt = "rad";
+   // std::string wrt = "dz";
 
    std::vector<double> dsen;
    omESP::tessSensitivity(*ocsm_model, wrt, ocsm_model->body->etess, dsen);
@@ -155,9 +155,9 @@ auto main() -> int
          EG_getGlobal(new_tess2, i, &ptype, &pindex, xyz);
          EG_getGlobal(tess, i, &ptype, &pindex, xyz_old);
 
-         dsen_fd[(i - 1) * 3 + 0] = (xyz_old[0] - xyz[0]) / delta;
-         dsen_fd[(i - 1) * 3 + 1] = (xyz_old[1] - xyz[1]) / delta;
-         dsen_fd[(i - 1) * 3 + 2] = (xyz_old[2] - xyz[2]) / delta;
+         dsen_fd[(i - 1) * 3 + 0] = (xyz[0] - xyz_old[0]) / delta;
+         dsen_fd[(i - 1) * 3 + 1] = (xyz[1] - xyz_old[1]) / delta;
+         dsen_fd[(i - 1) * 3 + 2] = (xyz[2] - xyz_old[2]) / delta;
          // dsen_fd[i] = (raw_tess->xyzs[i] - raw_new_tess->xyzs[i] ) / delta;
       }
 
