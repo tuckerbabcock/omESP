@@ -4,19 +4,19 @@ import openmdao.api as om
 from pyEGADS import egads
 from pyOCSM import ocsm
 
-def _getOCSMDesignParameters(ocsm_model):
+def _getOCSMParameters(ocsm_model, type=ocsm.DESPMTR):
 
-    des_params = {}
+    params = {}
 
     _, npmtr, _ = ocsm_model.Info();
 
     for pmtr_idx in range(1, npmtr+1):
         pmtr_type, nrow, ncol, name = ocsm_model.GetPmtr(pmtr_idx)
 
-        if pmtr_type == ocsm.DESPMTR:
-            des_params[name] = [pmtr_idx, nrow, ncol]
+        if pmtr_type == type:
+            params[name] = [pmtr_idx, nrow, ncol]
     
-    return des_params
+    return params
 
 def _getOCSMParameterValues(ocsm_model, pmtr_info):
     pmtr_idx, nrow, ncol = pmtr_info
@@ -153,62 +153,82 @@ class omESP(om.ExplicitComponent):
         if (nbody != 1):
             raise RuntimeError("omESP only supports EGADS models with one body!")
 
-        ### Add inputs
-        self.design_pmtrs = _getOCSMDesignParameters(self.ocsm_model)
+        # Add inputs
+        self.design_pmtrs = _getOCSMParameters(self.ocsm_model)
         for key, pmtr_info in self.design_pmtrs.items():
             values = _getOCSMParameterValues(self.ocsm_model, pmtr_info)
             self.add_input(key, val=values)
 
-        ### Add outputs
+            print(f"adding input: {key} with value: {values}")
+
+        # Add tesselation output
         self.egads_body = children[0]
         self.egads_init_tess = children[1]
 
         _, _, _, ntess_pts = self.egads_init_tess.statusTessBody()
+        print("tess pts:", ntess_pts)
 
         tess_coords = np.zeros(3 * ntess_pts)
         _getTessCoordinates(self.egads_init_tess, tess_coords)
         self.add_output("x_surf", val=tess_coords)
 
+        # Add configuration outputs
+        self.config_pmtrs = _getOCSMParameters(self.ocsm_model, ocsm.CFGPMTR)
+        for key, pmtr_info in self.config_pmtrs.items():
+            values = _getOCSMParameterValues(self.ocsm_model, pmtr_info)
+            self.add_output(key, val=values)
+
     def setup_partials(self):
-        self.declare_partials('*', '*')
+        # self.declare_partials("x_surf", "*")
+        # self.declare_partials("x_surf", "*", method="fd")
+        pass
     
     def compute(self, inputs, outputs):
         """
         Build the geometry model 
         """
+
+        print("ESP inputs:")
+        for input in inputs.keys():
+            print(f"{input}: {inputs[input]}")
+
+        for key, pmtr_info in self.config_pmtrs.items():
+            values = _getOCSMParameterValues(self.ocsm_model, pmtr_info)
+            outputs[key] = values
+
         for input in inputs.keys():
             value = inputs[input]
             if input in self.design_pmtrs:
                 pmtr_info = self.design_pmtrs[input]
                 _setOCSMParameterValues(self.ocsm_model, pmtr_info, value)
 
-        self.ocsm_model.Build(0, 0)
-        ocsm_body = self.ocsm_model.GetEgo(1, ocsm.BODY, 0)
+        _, nbodies, bodies = self.ocsm_model.Build(0, 1)
+        ocsm_body = self.ocsm_model.GetEgo(bodies[nbodies-1], ocsm.BODY, 0)
 
         tess = self.egads_init_tess.mapTessBody(ocsm_body)
         _getTessCoordinates(tess, outputs["x_surf"])
 
-    def compute_partials(self, inputs, partials):
+    # def compute_partials(self, inputs, partials):
 
-        for input in inputs.keys():
-            value = inputs[input]
-            if input in self.design_pmtrs:
-                pmtr_info = self.design_pmtrs[input]
-                _setOCSMParameterValues(self.ocsm_model, pmtr_info, value)
+    #     for input in inputs.keys():
+    #         value = inputs[input]
+    #         if input in self.design_pmtrs:
+    #             pmtr_info = self.design_pmtrs[input]
+    #             _setOCSMParameterValues(self.ocsm_model, pmtr_info, value)
 
-        self.ocsm_model.Build(0, 0)
-        ocsm_body = self.ocsm_model.GetEgo(1, ocsm.BODY, 0)
+    #     _, nbodies, bodies = self.ocsm_model.Build(0, 1)
+    #     ocsm_body = self.ocsm_model.GetEgo(bodies[nbodies-1], ocsm.BODY, 0)
 
-        tess = self.egads_init_tess.mapTessBody(ocsm_body)
-        self.ocsm_model.SetEgo(1, 1, tess)
+    #     tess = self.egads_init_tess.mapTessBody(ocsm_body)
+    #     self.ocsm_model.SetEgo(bodies[nbodies-1], 1, tess)
 
-        for input in inputs.keys():
-            pmtr_idx, nrow, ncol = self.design_pmtrs[input]
-            if (nrow > 1) or (ncol > 1):
-                raise RuntimeError("omESP component currently only supports partial"
-                                   " derivatives with respect to scalar design parameters")
+    #     for input in inputs.keys():
+    #         pmtr_idx, nrow, ncol = self.design_pmtrs[input]
+    #         if (nrow > 1) or (ncol > 1):
+    #             raise RuntimeError("omESP component currently only supports partial"
+    #                                " derivatives with respect to scalar design parameters")
 
-            _getTessSensitivity(tess, self.ocsm_model, pmtr_idx, 1, 1, partials["x_surf", input])
+    #         _getTessSensitivity(tess, self.ocsm_model, pmtr_idx, 1, 1, partials["x_surf", input])
 
 
 

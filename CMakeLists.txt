@@ -17,7 +17,7 @@ include(cmake/variables.cmake)
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/find")
 
 # ---- Find ESP ----
-find_package(ESP REQUIRED)
+find_package(ESP REQUIRED COMPONENTS)
 
 # ---- Declare library ----
 

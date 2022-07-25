@@ -217,7 +217,7 @@ foreach(component ${ESP_FIND_COMPONENTS})
     set(ESP_${component}_FOUND False)
   endif()
 
-  # message(STATUS "Comp ${component} found: ${ESP_${component}_FOUND}")
+  message(STATUS "Comp ${component} found: ${ESP_${component}_FOUND}")
 
   # Create a library target only if the above checks passed
   if(ESP_${component}_FOUND AND NOT TARGET ESP::${component})
