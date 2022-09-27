@@ -1,3 +1,4 @@
+from email.policy import default
 import numpy as np
 import openmdao.api as om
 
@@ -129,10 +130,10 @@ class omESP(om.ExplicitComponent):
     """
     Component to map between ESP CAD model design parameters and the surface mesh on the model
     """
-
     def initialize(self):
         self.options.declare("csm_file", types=str)
         self.options.declare("egads_file", types=str)
+        self.options.declare("partials", types=(list, dict), default=None)
 
     def setup(self):
         ocsm.SetOutLevel(0)
@@ -178,15 +179,44 @@ class omESP(om.ExplicitComponent):
             values = _getOCSMParameterValues(self.ocsm_model, pmtr_info)
             self.add_output(key, val=values)
 
-    def setup_partials(self):
-        # self.declare_partials("x_surf", "*")
-        # self.declare_partials("x_surf", "*", method="fd")
-        pass
+        partials = self.options["partials"]
+        if partials is not None:
+            # self.declare_partials("x_surf", "*")
+            print(f"\n\ndeclaring ESP partials wrt: {partials}\n\n")
+
+            if isinstance(partials, list):
+                self.declare_partials("x_surf",
+                                      partials,
+                                      method="fd",
+                                      form="central")
+                                #   step_calc="rel_element")
+            elif isinstance(partials, dict):
+                for partial in partials:
+                    step_size = partials[partial].get('step', 1e-5)
+                    form = partials[partial].get('form', 'central')
+                    self.declare_partials("x_surf",
+                                          partial,
+                                          method="fd",
+                                          form=form,
+                                          step=step_size)
+
+
+        else:
+            print(f"\n\ndeclaring NO ESP partials!\n\n")
+
+        # self.declare_coloring(wrt='*',
+        #                       method='fd',
+        #                       perturb_size=1e-5,
+        #                       num_full_jacs=2,
+        #                       tol=1e-20,
+        #                       show_summary=True,
+        #                       show_sparsity=True)
     
     def compute(self, inputs, outputs):
         """
         Build the geometry model 
         """
+        print("start of omESP compute!")
 
         print("ESP inputs:")
         for input in inputs.keys():
@@ -202,11 +232,20 @@ class omESP(om.ExplicitComponent):
                 pmtr_info = self.design_pmtrs[input]
                 _setOCSMParameterValues(self.ocsm_model, pmtr_info, value)
 
+        # try:
         _, nbodies, bodies = self.ocsm_model.Build(0, 1)
+        # except ocsm.OcsmError:
+        #     raise om.AnalysisError
+
         ocsm_body = self.ocsm_model.GetEgo(bodies[nbodies-1], ocsm.BODY, 0)
 
+        # try:
         tess = self.egads_init_tess.mapTessBody(ocsm_body)
+        # except egads.EGADSError:
+        #     raise om.AnalysisError
+
         _getTessCoordinates(tess, outputs["x_surf"])
+        print("end of omESP compute!")
 
     # def compute_partials(self, inputs, partials):
 
@@ -230,5 +269,15 @@ class omESP(om.ExplicitComponent):
 
     #         _getTessSensitivity(tess, self.ocsm_model, pmtr_idx, 1, 1, partials["x_surf", input])
 
+    def getConfigurationValues(self):
+        csm_file = self.options["csm_file"]
+        ocsm_model = ocsm.Ocsm(csm_file)
 
-
+        # get configuration vars
+        vals = {}
+        config_pmtrs = _getOCSMParameters(ocsm_model, ocsm.CFGPMTR)
+        for key, pmtr_info in config_pmtrs.items():
+            values = _getOCSMParameterValues(ocsm_model, pmtr_info)
+            vals[key] = values
+        
+        return vals
