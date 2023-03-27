@@ -5,19 +5,21 @@ import openmdao.api as om
 from pyEGADS import egads
 from pyOCSM import ocsm
 
+
 def _getOCSMParameters(ocsm_model, type=ocsm.DESPMTR):
 
     params = {}
 
-    _, npmtr, _ = ocsm_model.Info();
+    _, npmtr, _ = ocsm_model.Info()
 
-    for pmtr_idx in range(1, npmtr+1):
+    for pmtr_idx in range(1, npmtr + 1):
         pmtr_type, nrow, ncol, name = ocsm_model.GetPmtr(pmtr_idx)
 
         if pmtr_type == type:
             params[name] = [pmtr_idx, nrow, ncol]
-    
+
     return params
+
 
 def _getOCSMParameterValues(ocsm_model, pmtr_info):
     pmtr_idx, nrow, ncol = pmtr_info
@@ -26,25 +28,28 @@ def _getOCSMParameterValues(ocsm_model, pmtr_info):
     if (nrow == 1) and (ncol == 1):
         value, _ = ocsm_model.GetValu(pmtr_idx, 1, 1)
         return value
-    
+
     # vector parameter
     elif (nrow == 1) and (ncol != 1):
         values = np.zeros(ncol)
-        for col_idx in range(1, ncol+1):
-            values[col_idx-1] = ocsm_model.GetValu(pmtr_idx, 1, col_idx)
+        for col_idx in range(1, ncol + 1):
+            values[col_idx - 1] = ocsm_model.GetValu(pmtr_idx, 1, col_idx)
         return values
     elif (nrow != 1) and (ncol == 1):
         values = np.zeros(nrow)
-        for row_idx in range(1, nrow+1):
-            values[row_idx-1] = ocsm_model.GetValu(pmtr_idx, row_idx, 1)
+        for row_idx in range(1, nrow + 1):
+            values[row_idx - 1] = ocsm_model.GetValu(pmtr_idx, row_idx, 1)
         return values
 
     # matrix parameter
     else:
         values = np.zeros([nrow, ncol])
-        for row_idx in range(1, nrow+1):
-            for col_idx in range(1, ncol+1):
-                values[row_idx-1, col_idx-1] = ocsm_model.GetValu(pmtr_idx, row_idx, col_idx)
+        for row_idx in range(1, nrow + 1):
+            for col_idx in range(1, ncol + 1):
+                values[row_idx - 1, col_idx - 1] = ocsm_model.GetValu(
+                    pmtr_idx, row_idx, col_idx
+                )
+
 
 def _setOCSMParameterValues(ocsm_model, pmtr_info, value):
     pmtr_idx, nrow, ncol = pmtr_info
@@ -52,26 +57,30 @@ def _setOCSMParameterValues(ocsm_model, pmtr_info, value):
     # scalar parameter
     if (nrow == 1) and (ncol == 1):
         ocsm_model.SetValuD(pmtr_idx, 1, 1, value)
-    
+
     # vector parameter
     elif (nrow == 1) and (ncol != 1):
-        for col_idx in range(1, ncol+1):
-            ocsm_model.SetValuD(pmtr_idx, 1, col_idx, value[col_idx-1])
+        for col_idx in range(1, ncol + 1):
+            ocsm_model.SetValuD(pmtr_idx, 1, col_idx, value[col_idx - 1])
     elif (nrow != 1) and (ncol == 1):
-        for row_idx in range(1, nrow+1):
-            ocsm_model.SetValuD(pmtr_idx, row_idx, 1, value[row_idx-1])
+        for row_idx in range(1, nrow + 1):
+            ocsm_model.SetValuD(pmtr_idx, row_idx, 1, value[row_idx - 1])
 
     # matrix parameter
     else:
-        for row_idx in range(1, nrow+1):
-            for col_idx in range(1, ncol+1):
-                ocsm_model.SetValuD(pmtr_idx, row_idx, col_idx, value[row_idx-1, col_idx-1])
+        for row_idx in range(1, nrow + 1):
+            for col_idx in range(1, ncol + 1):
+                ocsm_model.SetValuD(
+                    pmtr_idx, row_idx, col_idx, value[row_idx - 1, col_idx - 1]
+                )
+
 
 def _setOCSMSensitivity(ocsm_model, pmtr_idx, row_idx, col_idx):
     ocsm_model.SetDtime(0.0)
     ocsm_model.SetVelD(0, 0, 0, 0.0)
     ocsm_model.SetVelD(pmtr_idx, row_idx, col_idx, 1.0)
     ocsm_model.Build(0, 0)
+
 
 def _getTessCoordinates(tess, tess_coords):
     for global_idx in range(1, (tess_coords.size // 3) + 1):
@@ -80,11 +89,12 @@ def _getTessCoordinates(tess, tess_coords):
         tess_coords[(global_idx - 1) * 3 + 1] = xyz[1]
         tess_coords[(global_idx - 1) * 3 + 2] = xyz[2]
 
+
 def _getTessBodyIndex(tess, ocsm_model):
     tess_body, _, _, _ = tess.statusTessBody()
 
     _, _, nbodies = ocsm_model.Info()
-    for index in range(1, nbodies+1):
+    for index in range(1, nbodies + 1):
         ocsm_body = ocsm_model.GetEgo(index, ocsm.BODY, 0)
         if tess_body == ocsm_body:
             return index
@@ -102,24 +112,24 @@ def _getTessSensitivity(tess, ocsm_model, pmtr_idx, row_idx, col_idx, tess_sens)
 
     body_idx = _getTessBodyIndex(tess, ocsm_model)
 
-    if (nfaces == 0):
-        for edge_idx in range(1, nedges+1):
+    if nfaces == 0:
+        for edge_idx in range(1, nedges + 1):
             xyz, _ = tess.getTessEdge(edge_idx)
             edge_npts = len(xyz)
 
             dxyz = ocsm_model.GetTessVel(body_idx, ocsm.EDGE, edge_idx)
-            for edge_pt in range(1, edge_npts+1):
+            for edge_pt in range(1, edge_npts + 1):
                 global_idx = tess.localToGlobal(-edge_idx, edge_pt)
                 tess_sens[(global_idx - 1) * 3 + 0] = dxyz[(edge_pt - 1) * 3 + 0]
                 tess_sens[(global_idx - 1) * 3 + 1] = dxyz[(edge_pt - 1) * 3 + 1]
                 tess_sens[(global_idx - 1) * 3 + 2] = dxyz[(edge_pt - 1) * 3 + 2]
     else:
-        for face_idx in range(1, nfaces+1):
+        for face_idx in range(1, nfaces + 1):
             xyz, *_ = tess.getTessFace(face_idx)
             face_npts = len(xyz)
 
             dxyz = ocsm_model.GetTessVel(body_idx, ocsm.FACE, face_idx)
-            for face_pt in range(1, face_npts+1):
+            for face_pt in range(1, face_npts + 1):
                 global_idx = tess.localToGlobal(face_idx, face_pt)
                 tess_sens[(global_idx - 1) * 3 + 0] = dxyz[(face_pt - 1) * 3 + 0]
                 tess_sens[(global_idx - 1) * 3 + 1] = dxyz[(face_pt - 1) * 3 + 1]
@@ -130,6 +140,7 @@ class omESP(om.ExplicitComponent):
     """
     Component to map between ESP CAD model design parameters and the surface mesh on the model
     """
+
     def initialize(self):
         self.options.declare("csm_file", types=str)
         self.options.declare("egads_file", types=str)
@@ -149,9 +160,9 @@ class omESP(om.ExplicitComponent):
         oclass, mtype, geom, reals, children, senses = self.egads_model.getTopology()
         if mtype == 0:
             raise RuntimeError("Loaded EGADS model must inclue a tesselation")
-            
+
         nbody = mtype // 2
-        if (nbody != 1):
+        if nbody != 1:
             raise RuntimeError("omESP only supports EGADS models with one body!")
 
         # Add inputs
@@ -185,21 +196,15 @@ class omESP(om.ExplicitComponent):
             print(f"\n\ndeclaring ESP partials wrt: {partials}\n\n")
 
             if isinstance(partials, list):
-                self.declare_partials("x_surf",
-                                      partials,
-                                      method="fd",
-                                      form="central")
-                                #   step_calc="rel_element")
+                self.declare_partials("x_surf", partials, method="fd", form="central")
+                #   step_calc="rel_element")
             elif isinstance(partials, dict):
                 for partial in partials:
-                    step_size = partials[partial].get('step', 1e-5)
-                    form = partials[partial].get('form', 'central')
-                    self.declare_partials("x_surf",
-                                          partial,
-                                          method="fd",
-                                          form=form,
-                                          step=step_size)
-
+                    step_size = partials[partial].get("step", 1e-5)
+                    form = partials[partial].get("form", "central")
+                    self.declare_partials(
+                        "x_surf", partial, method="fd", form=form, step=step_size
+                    )
 
         else:
             print(f"\n\ndeclaring NO ESP partials!\n\n")
@@ -211,10 +216,10 @@ class omESP(om.ExplicitComponent):
         #                       tol=1e-20,
         #                       show_summary=True,
         #                       show_sparsity=True)
-    
+
     def compute(self, inputs, outputs):
         """
-        Build the geometry model 
+        Build the geometry model
         """
         print("start of omESP compute!")
 
@@ -232,17 +237,19 @@ class omESP(om.ExplicitComponent):
                 pmtr_info = self.design_pmtrs[input]
                 _setOCSMParameterValues(self.ocsm_model, pmtr_info, value)
 
-        # try:
-        _, nbodies, bodies = self.ocsm_model.Build(0, 1)
-        # except ocsm.OcsmError:
-        #     raise om.AnalysisError
+        try:
+            _, nbodies, bodies = self.ocsm_model.Build(0, 1)
+        except ocsm.OcsmError:
+            print("Raising analysis error!")
+            raise om.AnalysisError("OCSM Error!")
 
-        ocsm_body = self.ocsm_model.GetEgo(bodies[nbodies-1], ocsm.BODY, 0)
+        ocsm_body = self.ocsm_model.GetEgo(bodies[nbodies - 1], ocsm.BODY, 0)
 
-        # try:
-        tess = self.egads_init_tess.mapTessBody(ocsm_body)
-        # except egads.EGADSError:
-        #     raise om.AnalysisError
+        try:
+            tess = self.egads_init_tess.mapTessBody(ocsm_body)
+        except egads.EGADSError:
+            print("Raising analysis error!")
+            raise om.AnalysisError("EGADS Error!")
 
         _getTessCoordinates(tess, outputs["x_surf"])
         print("end of omESP compute!")
@@ -279,5 +286,5 @@ class omESP(om.ExplicitComponent):
         for key, pmtr_info in config_pmtrs.items():
             values = _getOCSMParameterValues(ocsm_model, pmtr_info)
             vals[key] = values
-        
+
         return vals
